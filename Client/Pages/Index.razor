@@ -1,0 +1,99 @@
+﻿@page "/"
+@using System.Diagnostics;
+@inject IJSRuntime JS
+
+<PageTitle>Index</PageTitle>
+
+<ApexChart @ref="_chart" TItem="Order"
+           Title="Order Net Value" OnZoomed="(e) => PrintHelloWorld(e)">
+
+    <ApexPointSeries @ref="_series" TItem="Order"
+                     Items="Orders"
+                     Name="Gross Value"
+                     SeriesType="SeriesType.Line"
+                     XValue="e => e.Date"
+                     YValue="e => e.Value"
+                     OrderBy="e => e.X" />
+</ApexChart>
+
+<button class="btn btn-primary" @onclick="SetOrders">Get Orders</button>
+
+@code {
+
+    private ApexChart<Order>? _chart;
+    private ApexPointSeries<Order>? _series;
+    private List<Order>? Orders { get; set; }
+
+    private void PrintHelloWorld(ZoomedData<Order> zoomedData)
+    {
+        Console.WriteLine(zoomedData.XAxis.Min + " " + zoomedData.XAxis.Max);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("loadJS", "apex-charts", "_content/Blazor-ApexCharts/js/apex-charts.min.js");
+            await JS.InvokeVoidAsync("loadJS", "blazor-apex-charts", "_content/Blazor-ApexCharts/js/blazor-apex-charts.js");
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        //Orders = SampleRandom(2_000);
+    }
+
+    private async Task SetOrders()
+    {
+        var sw = Stopwatch.StartNew();
+        var orders = SampleRandom(2000);
+        sw.Stop();
+        Console.WriteLine($"Generate random values took {sw.ElapsedMilliseconds}ms");
+
+        if (_chart is not null)
+            await _chart.AppendDataAsync(orders);
+    }
+
+    private static List<Order> Sample1()
+    {
+        var values = new int[] { 30, 40, 35, 50, 49, 60, 70, 91, 125 };
+        var years = new int[] { 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999 };
+
+        var datesFromYears = years.Select(y => new DateTime(y, 1, 1)).ToList();
+
+        return values.Zip(datesFromYears).Select(x => new Order(x.First, x.Second)).ToList();
+    }
+
+    private static List<Order> SampleRandom(int count)
+    {
+        var values = RandomListGenerator.GetRandomListInt(count, 0, 100);
+
+        var startDate = new DateTime(2000, 1, 1);
+
+        var dates = new List<DateTime>();
+        for (int i = 0; i < count; i++)
+        {
+            dates.Add(startDate.AddMinutes(i * 5));
+        }
+
+        return values.Zip(dates).Select(x => new Order(x.First, x.Second)).ToList();
+    }
+
+    public record Order(int Value, DateTime Date);
+
+    public class RandomListGenerator
+    {
+        public static List<int> GetRandomListInt(int count, int min, int max)
+        {
+            var random = new Random();
+
+            var list = new List<int>();
+            for (int i = 0; i < count; i++)
+            {
+                var n = random.Next(min, max);
+                list.Add(n);
+            }
+            return list;
+        }
+    }
+}
